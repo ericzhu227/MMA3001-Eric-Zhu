@@ -33,6 +33,6 @@ AI assistance in this repository also includes dataset-loading code, auditing, c
 
 ## Model comparison
 
-Run the final notebook cells in the Personal environment with scikit-learn and matplotlib installed. `co2_models.py` compares persistence, linear regression and decision trees using CO2 history, temperature/humidity and 10/20-minute backward rate features. Validation MAE selects the configuration before scoring the final test. Do not tune on the exported test results. Tables, predictions and PNG plots are saved under `model_results/`. No serialized model file is required: the fitted estimator is available as `comparison["model"]` in the notebook.
+Run the final notebook cells in the Personal environment with scikit-learn installed. Matplotlib is optional: if it is unavailable, model metrics still run and only the PNG plots are skipped. `co2_models.py` compares persistence, linear regression and decision trees using CO2 history, temperature/humidity and 10/20-minute backward rate features. Validation MAE selects the configuration before scoring the final test. Do not tune on the exported test results. Tables, predictions, exclusion diagnostics and paired weekly test errors are saved under `prepared_data/` and `model_results/`. No serialized model file is required: the fitted estimator is available as `comparison["model"]` in the notebook.
 
 Run verification with `python -m unittest discover -s tests -v` and `python -m doctest co2_models.py`. See `TEST_REPORT.md` for checks and limitations. Regenerate pdoc HTML with `python build_docs.py`.

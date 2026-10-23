@@ -7,10 +7,41 @@ from validation or test data.
 """
 from pathlib import Path
 from time import perf_counter
+import json
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeRegressor
+
+
+def extract_environment_measurements(json_text, sensorid=None):
+    """Extract selected measurements from one environmental JSON payload.
+
+    Args:
+        json_text (str): JSON payload containing variable/value entries.
+        sensorid (str, optional): Sensor identifier copied to each result.
+
+    Returns:
+        list of tuple: ``(sensorid, epoch_seconds, variable, value)`` rows for
+        CO2, temperature and humidity measurements.
+
+    Raises:
+        ValueError: If the payload is not valid JSON.
+        TypeError: If the payload is not a JSON list of measurement objects.
+    """
+    payload = json.loads(json_text)
+    if not isinstance(payload, list):
+        raise TypeError("Environmental JSON must contain a list.")
+    selected = {"Carbon dioxide", "Temperature", "Humidity"}
+    records = []
+    for item in payload:
+        variable = item.get("variable", {})
+        name = variable.get("name")
+        if name not in selected:
+            continue
+        for reading in item.get("values", []):
+            records.append((sensorid, reading.get("time"), name, reading.get("value")))
+    return records
 
 
 def forecast_metrics(observed, predicted):
@@ -134,6 +165,26 @@ def compare_models(train, validation, test, output_dir):
         seconds = perf_counter() - started
         predictions[name] = pred
         summaries.append({'candidate': name, **forecast_metrics(test.target_co2_ppm, pred), 'prediction_seconds': seconds})
+    # Compare the frozen models over calendar weeks to show whether the test
+    # improvement is consistent rather than driven by one short interval.
+    temporal_errors = pd.DataFrame({
+        'target_time': pd.to_datetime(predictions.target_time, utc=True),
+        'persistence_error_ppm': predictions.persistence - predictions.observed_co2_ppm,
+        'selected_error_ppm': predictions[selected_name] - predictions.observed_co2_ppm,
+    })
+    temporal_errors['target_week'] = temporal_errors['target_time'].dt.strftime('%Y-W%U')
+    weekly_errors = temporal_errors.groupby('target_week', sort=True).agg(
+        rows=('target_time', 'size'),
+        persistence_mae_ppm=('persistence_error_ppm', lambda values: np.abs(values).mean()),
+        selected_mae_ppm=('selected_error_ppm', lambda values: np.abs(values).mean()),
+    ).reset_index()
+    weekly_errors['improvement_ppm'] = (
+        weekly_errors['persistence_mae_ppm'] - weekly_errors['selected_mae_ppm']
+    )
+    weekly_errors['improvement_percent'] = (
+        100 * weekly_errors['improvement_ppm'] / weekly_errors['persistence_mae_ppm']
+    )
+
     # Report rising periods using an a-priori historical rate threshold, never a target-based filter.
     rising = test.co2_rate_ppm_per_min > 1.0
     rising_rows = []
@@ -159,6 +210,7 @@ def compare_models(train, validation, test, output_dir):
     ranking.to_csv(output / 'validation_ranking.csv', index=False)
     pd.DataFrame(summaries).to_csv(output / 'final_test_metrics.csv', index=False)
     predictions.to_csv(output / 'final_test_predictions.csv', index=False)
+    weekly_errors.to_csv(output / 'test_error_by_week.csv', index=False)
     pd.DataFrame(rising_rows).to_csv(output / 'rising_co2_test_metrics.csv', index=False)
     pd.DataFrame(noise_rows).to_csv(output / 'validation_noise_sensitivity.csv', index=False)
     if hasattr(model, 'coef_'):
@@ -167,7 +219,8 @@ def compare_models(train, validation, test, output_dir):
         pd.DataFrame({'feature': columns, 'importance': model.feature_importances_}).to_csv(output / 'selected_model_importance.csv', index=False)
     return {'selected_name': selected_name, 'model': model, 'features': columns,
             'experiments': results, 'ranking': ranking, 'test_metrics': pd.DataFrame(summaries),
-            'test_predictions': predictions, 'noise_sensitivity': pd.DataFrame(noise_rows)}
+            'test_predictions': predictions, 'noise_sensitivity': pd.DataFrame(noise_rows),
+            'test_error_by_week': weekly_errors}
 
 
 def plot_model_results(comparison, output_dir):

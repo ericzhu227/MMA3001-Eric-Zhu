@@ -1,0 +1,6 @@
+condition,rows,share_percent
+missing_lag_10min,2982,21.60869565217391
+missing_lag_20min,3439,24.920289855072465
+missing_temperature,0,0.0
+missing_humidity,0,0.0
+missing_target,1387,10.050724637681158

@@ -2,7 +2,12 @@
 import unittest
 import numpy as np
 import pandas as pd
-from co2_models import forecast_metrics, add_rate_features, compare_models
+from co2_models import (
+    add_rate_features,
+    compare_models,
+    extract_environment_measurements,
+    forecast_metrics,
+)
 
 
 class ForecastTests(unittest.TestCase):
@@ -29,6 +34,19 @@ class ForecastTests(unittest.TestCase):
         frame['lag_time_20'] = frame.issue_time
         with self.assertRaises(ValueError):
             add_rate_features(frame)
+
+    def test_environment_json_extracts_known_measurements(self):
+        """Extract a known CO2 reading and ignore unrelated variables."""
+        payload = '[{"variable": {"name": "Carbon dioxide"}, "values": [{"time": 10, "value": 500}]}, {"variable": {"name": "Battery"}, "values": [{"time": 10, "value": 4.2}]}]'
+        self.assertEqual(
+            extract_environment_measurements(payload, "sensor-1"),
+            [("sensor-1", 10, "Carbon dioxide", 500)],
+        )
+
+    def test_environment_json_rejects_non_list_payload(self):
+        """Reject a valid JSON object with the wrong payload structure."""
+        with self.assertRaises(TypeError):
+            extract_environment_measurements('{"values": []}')
 
     def test_target_boundary_leakage_rejected(self):
         """An overlapping target boundary must fail before any model is fitted."""
