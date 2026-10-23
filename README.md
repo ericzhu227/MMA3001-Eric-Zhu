@@ -30,3 +30,9 @@ python build_docs.py
 The generator uses pdoc with Google-style docstrings, source panels and search. Run it in the Personal conda environment where pdoc is installed (`conda activate Personal`, then `python build_docs.py`). It does not execute notebook cells or load datasets. The generated `docs/_source/co2_forecasting.py` reference is rebuilt from the notebook; edit the notebook rather than that generated file. Review [project criteria and remaining work](PROJECT_CRITERIA.md) before submission. The HTML source documentation is separate from the required written report.
 
 AI assistance in this repository also includes dataset-loading code, auditing, chronological splitting, baseline implementation, debugging and documentation generation. This supplements the earlier general AI statement; the student still needs to record their own review, understanding, contribution estimate and critical reflection.
+
+## Model comparison
+
+Run the final notebook cells in the Personal environment with scikit-learn and matplotlib installed. `co2_models.py` compares persistence, linear regression and decision trees using CO2 history, temperature/humidity and 10/20-minute backward rate features. Validation MAE selects the configuration before scoring the final test. Do not tune on the exported test results. Tables, predictions and PNG plots are saved under `model_results/`. No serialized model file is required: the fitted estimator is available as `comparison["model"]` in the notebook.
+
+Run verification with `python -m unittest discover -s tests -v` and `python -m doctest co2_models.py`. See `TEST_REPORT.md` for checks and limitations. Regenerate pdoc HTML with `python build_docs.py`.
