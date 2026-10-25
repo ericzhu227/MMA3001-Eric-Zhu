@@ -35,11 +35,20 @@ def extract_environment_measurements(json_text, sensorid=None):
     selected = {"Carbon dioxide", "Temperature", "Humidity"}
     records = []
     for item in payload:
+        if not isinstance(item, dict):
+            raise TypeError("Each environmental entry must be an object.")
         variable = item.get("variable", {})
+        if not isinstance(variable, dict):
+            raise TypeError("Environmental variable metadata must be an object.")
         name = variable.get("name")
         if name not in selected:
             continue
-        for reading in item.get("values", []):
+        values = item.get("values", [])
+        if not isinstance(values, list):
+            raise TypeError("Environmental values must be a list.")
+        for reading in values:
+            if not isinstance(reading, dict):
+                raise TypeError("Each environmental reading must be an object.")
             records.append((sensorid, reading.get("time"), name, reading.get("value")))
     return records
 
@@ -71,7 +80,7 @@ def forecast_metrics(observed, predicted):
 
 
 def add_rate_features(frame):
-    """Add a 20-minute backward difference using actual measurement times.
+    """Add 10- and 20-minute backward differences using actual times.
 
     Args:
         frame (pandas.DataFrame): Prepared split with issue_time, lag_time_20,
@@ -88,8 +97,39 @@ def add_rate_features(frame):
     elapsed = (pd.to_datetime(result['issue_time'], utc=True) - pd.to_datetime(result['lag_time_20'], utc=True)).dt.total_seconds() / 60
     if elapsed.isna().any() or (elapsed <= 0).any():
         raise ValueError('Backward rates require valid historical timestamps.')
+    if {'lag_time_10', 'co2_lag_10min'}.issubset(result.columns):
+        elapsed_10 = (pd.to_datetime(result['issue_time'], utc=True) - pd.to_datetime(result['lag_time_10'], utc=True)).dt.total_seconds() / 60
+        if elapsed_10.isna().any() or (elapsed_10 <= 0).any():
+            raise ValueError('Backward rates require valid historical timestamps.')
+        result['co2_rate_ppm_per_min'] = (result.co2_ppm - result.co2_lag_10min) / elapsed_10
     result['co2_rate_20_ppm_per_min'] = (result.co2_ppm - result.co2_lag_20min) / elapsed
     return result
+
+
+def validate_prepared_split(frame, name='split'):
+    """Validate a prepared chronological split before model fitting."""
+    required = {
+        'issue_time', 'target_time', 'target_co2_ppm', 'co2_ppm',
+        'co2_lag_10min', 'co2_lag_20min', 'lag_time_10', 'lag_time_20',
+        'Temperature', 'Humidity',
+    }
+    missing = sorted(required.difference(frame.columns))
+    if missing:
+        raise KeyError(f'{name} is missing required columns: {missing}')
+    if frame.empty:
+        raise ValueError(f'{name} must not be empty.')
+    times = frame[['issue_time', 'target_time', 'lag_time_10', 'lag_time_20']].apply(
+        pd.to_datetime, utc=True, errors='coerce'
+    )
+    if times.isna().any().any():
+        raise ValueError(f'{name} contains invalid timestamps.')
+    if (times['target_time'] <= times['issue_time']).any():
+        raise ValueError(f'{name} contains a target at or before its issue time.')
+    if (times['lag_time_10'] > times['issue_time']).any() or (times['lag_time_20'] > times['issue_time']).any():
+        raise ValueError(f'{name} contains historical measurements after its issue time.')
+    numeric = frame[['target_co2_ppm', 'co2_ppm', 'co2_lag_10min', 'co2_lag_20min', 'Temperature', 'Humidity']]
+    if not np.isfinite(numeric.to_numpy(dtype=float)).all():
+        raise ValueError(f'{name} contains missing or nonfinite numeric values.')
 
 
 def compare_models(train, validation, test, output_dir):
@@ -118,6 +158,8 @@ def compare_models(train, validation, test, output_dir):
         this same test period; do not tune in response to its results.
     """
     train, validation, test = [add_rate_features(p) for p in (train, validation, test)]
+    for label, part in [('train', train), ('validation', validation), ('test', test)]:
+        validate_prepared_split(part, label)
     for earlier, later in [(train, validation), (validation, test)]:
         if pd.to_datetime(earlier.target_time, utc=True).max() >= pd.to_datetime(later.issue_time, utc=True).min():
             raise ValueError('Splits must be chronological with target-boundary purging.')
@@ -181,8 +223,10 @@ def compare_models(train, validation, test, output_dir):
     weekly_errors['improvement_ppm'] = (
         weekly_errors['persistence_mae_ppm'] - weekly_errors['selected_mae_ppm']
     )
-    weekly_errors['improvement_percent'] = (
-        100 * weekly_errors['improvement_ppm'] / weekly_errors['persistence_mae_ppm']
+    weekly_errors['improvement_percent'] = np.where(
+        weekly_errors['persistence_mae_ppm'].ne(0),
+        100 * weekly_errors['improvement_ppm'] / weekly_errors['persistence_mae_ppm'],
+        np.nan,
     )
 
     # Report rising periods using an a-priori historical rate threshold, never a target-based filter.

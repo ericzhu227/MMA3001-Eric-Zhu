@@ -1,6 +1,6 @@
 ﻿# Model verification report
 
-Run date: 22 October 2026 (Australia/Sydney).
+Run date: 25 October 2026 (Australia/Sydney).
 
 Environment: Personal conda environment, scikit-learn 1.7.2.
 
@@ -12,7 +12,7 @@ python -m doctest co2_models.py
 python build_docs.py
 ```
 
-Result: six unit tests passed, metric docstring example passed. Checks cover hand-computed MAE/RMSE/error sign, invalid metric inputs, irregular elapsed-time rates, known environmental JSON extraction, invalid JSON payload structure, and rejection of overlapping target/split boundaries.
+Result: eight unit tests passed, metric docstring example passed. Checks cover hand-computed MAE/RMSE/error sign, invalid metric inputs, irregular elapsed-time rates, known environmental JSON extraction, invalid JSON payload structure, finite prepared split validation, successful model-comparison exports, target-boundary purging, and the independence of model selection from withheld test targets.
 
 Integration run: loaded the existing 4,712 training, 1,569 validation and 1,571 final-test rows; fitted 65 candidates (persistence, four linear configurations and 60 trees). Each candidate was evaluated on train/validation. Selected linear_history_environment_rate20 using validation MAE alone. Saved exclusion diagnostics, paired weekly test errors, CSV diagnostics and two PNG plots when matplotlib was available, then regenerated pdoc HTML.
 
