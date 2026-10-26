@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 from co2_models import (
     add_rate_features,
+    build_forecast_features,
+    clean_environment_readings,
     compare_models,
     extract_environment_measurements,
     forecast_metrics,
@@ -49,6 +51,41 @@ class ForecastTests(unittest.TestCase):
         """Reject a valid JSON object with the wrong payload structure."""
         with self.assertRaises(TypeError):
             extract_environment_measurements('{"values": []}')
+
+    def test_clean_environment_readings_removes_duplicates_and_conflicts(self):
+        """Remove exact repeats and exclude all conflicting sensor readings."""
+        readings = pd.DataFrame([
+            ('s1', 0, 'Carbon dioxide', 500.),
+            ('s1', 0, 'Carbon dioxide', 500.),
+            ('s1', 0, 'Carbon dioxide', 501.),
+            ('s1', 600, 'Carbon dioxide', 510.),
+            ('s1', 600, 'Temperature', 22.),
+            ('s1', 600, 'Humidity', 45.),
+        ], columns=['sensorid', 'timestamp', 'variable', 'value'])
+        cleaned, summary = clean_environment_readings(readings)
+        self.assertEqual(summary['exact duplicates removed'], 1)
+        self.assertEqual(summary['conflicting readings excluded'], 2)
+        self.assertEqual(cleaned['co2_ppm'].tolist(), [510.])
+
+    def test_forecast_features_use_backward_lags_and_tolerant_targets(self):
+        """Match historical values backward and leave unsupported targets missing."""
+        times = pd.to_datetime([
+            '2024-03-01T00:00:00Z', '2024-03-01T00:10:00Z',
+            '2024-03-01T00:20:00Z', '2024-03-01T00:40:00Z',
+        ])
+        sensor = pd.DataFrame({
+            'co2_ppm': [400., 410., 420., 440.],
+            'Temperature': [22.] * 4,
+            'Humidity': [45.] * 4,
+        }, index=times)
+        features = build_forecast_features(sensor)
+        row = features.loc[features['issue_time'] == times[2]].iloc[0]
+        self.assertEqual(row['co2_lag_10min'], 410.)
+        self.assertEqual(row['co2_lag_20min'], 400.)
+        self.assertEqual(row['target_co2_ppm'], 440.)
+        self.assertEqual(row['co2_rate_ppm_per_min'], 1.)
+        unsupported = features.loc[features['issue_time'] == times[1], 'target_co2_ppm'].iloc[0]
+        self.assertTrue(pd.isna(unsupported))
 
     def test_target_boundary_leakage_rejected(self):
         """An overlapping target boundary must fail before any model is fitted."""

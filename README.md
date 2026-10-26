@@ -1,38 +1,90 @@
 # MMA3001-Eric-Zhu
-Private GitHub for MMA3001
 
-Below was generated using ChatGPT
+## Project
 
-Responsible AI Usage Statement
+This project forecasts indoor CO2 concentration approximately 20 minutes ahead
+for ventilation monitoring. The workflow compares persistence, linear
+regression and decision-tree models using chronological train, validation and
+final-test splits. The final test is scored only after validation-based model
+selection.
 
-Generative artificial intelligence (AI) tools were used to support the preparation of this assessment. AI was used to assist with brainstorming ideas, improving the clarity and grammar of written sections, refining sentence structure, and providing feedback on the organisation and presentation of the report. AI was also used to explain concepts and suggest approaches to problem-solving where required.
+## Environment setup
 
-All technical analysis, calculations, design decisions, coding, interpretation of results, and final conclusions were completed, verified, and critically evaluated by the author. AI-generated content was reviewed, modified where necessary, and checked against unit materials, academic literature, and other appropriate sources to ensure accuracy and compliance with academic integrity requirements.
-
-The author accepts full responsibility for the content of this submission and confirms that all submitted work represents their own understanding and learning outcomes.
-
-## Running the CO2 forecasting project
-
-Use Python 3.12 with pandas >= 2.0 and NumPy. Jupyter/ipykernel is needed to run the notebook; openpyxl enables location workbook reading and matplotlib enables optional plots. PyTorch is optional and does not accelerate the pandas workflow.
-
-Keep the supplied files in `MMA3001 Dataset - MSI Occupancy and Environmental`, then run `CO2_Forecasting.ipynb` from top to bottom. Leave `NROWS = None` for the full audit; preview row limits are not suitable for final results. Occupancy remains deferred until the room mapping is resolved. The implemented horizon is 20 minutes, based on the measured sampling intervals. Generated data and audit CSVs are written to `prepared_data/`, replacing earlier generated files.
-
-## Source documentation
-
-Code should include inline comments and docstrings. Use comments to explain intent and consistent Google-style docstrings for functions, including inputs, outputs, exceptions and examples. Follow this convention for future model code.
-
-Open [HTML source documentation](docs/index.html) locally in a browser. It includes every notebook code cell, function docstrings and complete source. Regenerate after edits from the repository folder:
+Use Python 3.10 or newer and install the pinned core dependencies plus the
+bounded notebook/plotting dependencies:
 
 ```powershell
-python build_docs.py
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-The generator uses pdoc with Google-style docstrings, source panels and search. Run it in the Personal conda environment where pdoc is installed (`conda activate Personal`, then `python build_docs.py`). It does not execute notebook cells or load datasets. The generated `docs/_source/co2_forecasting.py` reference is rebuilt from the notebook; edit the notebook rather than that generated file. Review [project criteria and remaining work](PROJECT_CRITERIA.md) before submission. The HTML source documentation is separate from the required written report.
+The tested core versions are Python 3.10.5, NumPy 2.2.6, pandas 2.3.3,
+scikit-learn 1.7.2, openpyxl 3.1.5 and pdoc 16.0.0. Matplotlib is required
+for PNG figures but is optional for model metrics.
 
-AI assistance in this repository also includes dataset-loading code, auditing, chronological splitting, baseline implementation, debugging and documentation generation. This supplements the earlier general AI statement; the student still needs to record their own review, understanding, contribution estimate and critical reflection.
+## Raw-data setup
 
-## Model comparison
+The raw dataset is subject to course access and is not redistributed in this
+repository. Obtain it from the authorised MMA3001 course source, then create
+this exact folder beside the notebook:
 
-Run the final notebook cells in the Personal environment with scikit-learn installed. Matplotlib is optional: if it is unavailable, model metrics still run and only the PNG plots are skipped. `co2_models.py` compares persistence, linear regression and decision trees using CO2 history, temperature/humidity and 10/20-minute backward rate features. Validation MAE selects the configuration before scoring the final test. Do not tune on the exported test results. Tables, predictions, exclusion diagnostics and paired weekly test errors are saved under `prepared_data/` and `model_results/`. No serialized model file is required: the fitted estimator is available as `comparison["model"]` in the notebook.
+```text
+MMA3001 Dataset - MSI Occupancy and Environmental/
+├── 5EnvSensor_MayToDec2024_180kRows.csv
+├── 5occupancySensor_MayToDec2024_9MRows.csv
+└── Sensor ID and Locations.xlsx
+```
 
-Run verification with `python -m unittest discover -s tests -v` and `python -m doctest co2_models.py`. See `TEST_REPORT.md` for checks and limitations. Regenerate pdoc HTML with `python build_docs.py`.
+The notebook searches the current folder and its parents for that folder.
+Run `CO2_Forecasting.ipynb` from top to bottom with `NROWS = None` for the
+full raw-data workflow. Occupancy remains deferred because the available room
+mapping is marked incorrect or unresolved. The notebook writes prepared splits
+and audit tables to `prepared_data/` and model results to `model_results/`.
+
+## Reproduce the model comparison from prepared data
+
+If the authorised raw files are unavailable, the included prepared CSVs are
+enough to reproduce model fitting and selection:
+
+```powershell
+.\.venv\Scripts\python.exe profile_workflow.py
+```
+
+The script loads `prepared_data/train.csv`, `validation.csv` and `test.csv`,
+runs the same comparison, and writes a cProfile report to
+`model_results/profiled_comparison/compare_models_profile.txt`.
+
+## Tests and documentation
+
+Run the tests, doctest and documentation build with:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m doctest co2_models.py
+.\.venv\Scripts\python.exe build_docs.py
+```
+
+Open [HTML source documentation](docs/index.html) locally. The generated
+documentation includes notebook code cells, function docstrings and the ordered
+project report. Review [PROJECT_CRITERIA.md](PROJECT_CRITERIA.md) and
+[TEST_REPORT.md](TEST_REPORT.md) before submission.
+
+## AI-use disclosure
+
+AI assistance was used for code generation and revision suggestions covering
+dataset loading, JSON extraction, cleaning audits, chronological feature
+construction, model comparison, validation checks, testing, profiling and
+HTML documentation. AI also helped improve wording and organisation. The
+author reviewed the generated changes, ran the tests/doctest and workflow,
+checked the numerical outputs against the prepared datasets and accepts
+responsibility for the final implementation, interpretation and conclusions.
+The author should add their own contribution estimate and reflection before
+submission.
+
+## Submission notes
+
+Do not add PyTorch, GPU support, occupancy inputs or a neural network unless a
+future project requirement specifically calls for them. Keep the GPL v3
+`LICENSE`, meaningful Git history, the final report, presentation/demo
+materials and an authorised repository link in the final submission.

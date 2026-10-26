@@ -1,0 +1,12 @@
+# Tested core environment: Python 3.10.5, 26 October 2026.
+numpy==2.2.6
+pandas==2.3.3
+scikit-learn==1.7.2
+openpyxl==3.1.5
+pdoc==16.0.0
+
+# Notebook and figure support. Matplotlib is optional for metrics but required
+# for the saved PNG figures.
+matplotlib>=3.8,<4
+jupyter>=1.0,<2
+ipykernel>=6.29,<7

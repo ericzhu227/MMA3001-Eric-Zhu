@@ -53,6 +53,123 @@ def extract_environment_measurements(json_text, sensorid=None):
     return records
 
 
+def clean_environment_readings(readings):
+    """Clean extracted environmental readings and return CO2-ready data.
+
+    Args:
+        readings (pandas.DataFrame): Long-form readings with ``sensorid``,
+            ``timestamp``, ``variable`` and ``value`` columns. Timestamps may
+            be epoch seconds or values accepted by ``pandas.to_datetime``.
+
+    Returns:
+        tuple: A wide CO2/temperature/humidity DataFrame and a dictionary of
+            counts for invalid rows, exact duplicates, conflicts and
+            non-positive CO2 values.
+
+    Raises:
+        KeyError: If a required long-form column is absent.
+        TypeError: If values cannot be converted to numeric data.
+    """
+    required = {'sensorid', 'timestamp', 'variable', 'value'}
+    missing = sorted(required.difference(readings.columns))
+    if missing:
+        raise KeyError(f'Readings are missing required columns: {missing}')
+    frame = readings[list(required)].copy()
+    frame['timestamp'] = pd.to_datetime(
+        pd.to_numeric(frame['timestamp'], errors='coerce'),
+        unit='s', utc=True, errors='coerce'
+    )
+    frame['value'] = pd.to_numeric(frame['value'], errors='coerce')
+    invalid = frame[['sensorid', 'timestamp', 'variable', 'value']].isna().any(axis=1)
+    invalid |= ~np.isfinite(frame['value'].fillna(np.nan))
+    invalid_count = int(invalid.sum())
+    frame = frame.loc[~invalid].copy()
+    exact_duplicates = int(frame.duplicated().sum())
+    frame = frame.drop_duplicates()
+    keys = ['sensorid', 'timestamp', 'variable']
+    conflicts = frame.duplicated(keys, keep=False)
+    conflicting_count = int(conflicts.sum())
+    frame = frame.loc[~conflicts]
+    wide = frame.pivot(
+        index=['sensorid', 'timestamp'], columns='variable', values='value'
+    ).reset_index()
+    co2 = wide.rename(columns={'Carbon dioxide': 'co2_ppm'}).sort_values(
+        ['sensorid', 'timestamp']
+    )
+    nonpositive_count = int(co2['co2_ppm'].le(0).sum()) if 'co2_ppm' in co2 else 0
+    if 'co2_ppm' in co2:
+        co2 = co2.loc[co2['co2_ppm'].gt(0)].copy()
+    return co2, {
+        'invalid readings': invalid_count,
+        'exact duplicates removed': exact_duplicates,
+        'conflicting readings excluded': conflicting_count,
+        'nonpositive CO2 excluded': nonpositive_count,
+    }
+
+
+def build_forecast_features(sensor_series, horizon='20min', tolerance='2min'):
+    """Build backward-matched historical features and measured targets.
+
+    Args:
+        sensor_series (pandas.DataFrame): Timestamp-indexed sensor data with
+            ``co2_ppm``, ``Temperature`` and ``Humidity`` columns.
+        horizon (str or pandas.Timedelta): Desired forecast horizon.
+        tolerance (str or pandas.Timedelta): Maximum backward/target matching
+            distance; no interpolation is performed.
+
+    Returns:
+        pandas.DataFrame: Issue times, backward CO2 lags, elapsed-time rate,
+            desired target times and nearest measured targets.
+
+    Raises:
+        KeyError: If the sensor data lacks a required column.
+        ValueError: If timestamps are invalid or the sensor data is empty.
+    """
+    required = {'co2_ppm', 'Temperature', 'Humidity'}
+    missing = sorted(required.difference(sensor_series.columns))
+    if missing:
+        raise KeyError(f'Sensor data is missing required columns: {missing}')
+    if sensor_series.empty:
+        raise ValueError('Sensor data must not be empty.')
+    horizon = pd.Timedelta(horizon)
+    tolerance = pd.Timedelta(tolerance)
+    base = sensor_series[['co2_ppm', 'Temperature', 'Humidity']].reset_index()
+    time_column = base.columns[0]
+    base = base.rename(columns={time_column: 'timestamp'})
+    base['timestamp'] = pd.to_datetime(base['timestamp'], utc=True, errors='coerce')
+    if base['timestamp'].isna().any():
+        raise ValueError('Sensor data contains invalid timestamps.')
+    base = base.sort_values('timestamp')
+    features = base.rename(columns={'timestamp': 'issue_time'}).copy()
+    for minutes in [10, 20]:
+        lookup = base[['timestamp', 'co2_ppm']].rename(columns={
+            'timestamp': f'lag_time_{minutes}',
+            'co2_ppm': f'co2_lag_{minutes}min',
+        })
+        features['lookup_time'] = features['issue_time'] - pd.Timedelta(minutes=minutes)
+        features = pd.merge_asof(
+            features.sort_values('lookup_time'), lookup,
+            left_on='lookup_time', right_on=f'lag_time_{minutes}',
+            direction='backward', tolerance=tolerance,
+        )
+    features = features.drop(columns='lookup_time').sort_values('issue_time')
+    elapsed = (
+        features['issue_time'] - features['lag_time_10']
+    ).dt.total_seconds() / 60
+    features['co2_rate_ppm_per_min'] = (
+        features['co2_ppm'] - features['co2_lag_10min']
+    ) / elapsed
+    features['desired_target_time'] = features['issue_time'] + horizon
+    targets = base[['timestamp', 'co2_ppm']].rename(columns={
+        'timestamp': 'target_time', 'co2_ppm': 'target_co2_ppm'
+    })
+    return pd.merge_asof(
+        features.sort_values('desired_target_time'), targets,
+        left_on='desired_target_time', right_on='target_time',
+        direction='nearest', tolerance=tolerance,
+    )
+
+
 def forecast_metrics(observed, predicted):
     """Calculate forecast errors using prediction minus observation.
 
@@ -107,7 +224,21 @@ def add_rate_features(frame):
 
 
 def validate_prepared_split(frame, name='split'):
-    """Validate a prepared chronological split before model fitting."""
+    """Validate a prepared chronological split before model fitting.
+
+    Args:
+        frame (pandas.DataFrame): Prepared rows containing issue/target times,
+            backward lag times and finite model inputs in ppm or source units.
+        name (str): Label used in validation error messages.
+
+    Returns:
+        None: The function returns only when all structural checks pass.
+
+    Raises:
+        KeyError: If a required prepared-data column is missing.
+        ValueError: If the split is empty, contains invalid timestamps,
+            future-looking lags, invalid horizons or non-finite values.
+    """
     required = {
         'issue_time', 'target_time', 'target_co2_ppm', 'co2_ppm',
         'co2_lag_10min', 'co2_lag_20min', 'lag_time_10', 'lag_time_20',
@@ -284,11 +415,47 @@ def plot_model_results(comparison, output_dir):
     import matplotlib.pyplot as plt
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
-    best = comparison['ranking'].groupby('model', sort=False).head(1)
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.bar(best.model, best.MAE_ppm)
-    ax.set(ylabel='Validation MAE (ppm)', title='Best validation configuration per model family')
-    fig.tight_layout(); fig.savefig(output / 'validation_comparison.png', dpi=160)
+    best = comparison['ranking'].groupby('model', sort=False).head(1).copy()
+    best['family_label'] = best['model'].replace({
+        'persistence': 'Persistence',
+        'linear': 'Linear',
+        'tree': 'Decision tree',
+    })
+    best_value = best['MAE_ppm'].min()
+    best['excess_ppm'] = best['MAE_ppm'] - best_value
+
+    fig, axes = plt.subplots(
+        1, 2, figsize=(12, 4.5), gridspec_kw={'width_ratios': [1.2, 1]}
+    )
+
+    # A tight y-axis and labels make small absolute differences visible.
+    bars = axes[0].bar(
+        best['family_label'], best['MAE_ppm'],
+        color=['#4c78a8', '#59a14f', '#f28e2b'],
+    )
+    value_range = max(best['MAE_ppm'].max() - best['MAE_ppm'].min(), 0.1)
+    axes[0].set_ylim(
+        best['MAE_ppm'].min() - 0.15 * value_range,
+        best['MAE_ppm'].max() + 0.25 * value_range,
+    )
+    axes[0].bar_label(bars, fmt='%.3f ppm', padding=3, fontsize=9)
+    axes[0].set_ylabel('Validation MAE (ppm)')
+    axes[0].set_title('Absolute error (zoomed scale)')
+    axes[0].grid(axis='y', alpha=.25)
+
+    # A zero-based difference view directly shows the ranking gaps.
+    bars = axes[1].bar(best['family_label'], best['excess_ppm'], color='#9c755f')
+    axes[1].bar_label(bars, fmt='%.3f ppm', padding=3, fontsize=9)
+    axes[1].set_ylim(0, max(best['excess_ppm'].max() * 1.35, 0.1))
+    axes[1].set_ylabel('Extra MAE above best family (ppm)')
+    axes[1].set_title('Difference from best configuration')
+    axes[1].grid(axis='y', alpha=.25)
+
+    for axis in axes:
+        axis.tick_params(axis='x', rotation=15)
+    fig.suptitle('Best validation configuration per model family')
+    fig.tight_layout()
+    fig.savefig(output / 'validation_comparison.png', dpi=160)
     plt.show()
     predictions = comparison['test_predictions']
     name = comparison['selected_name']
