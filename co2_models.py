@@ -58,8 +58,9 @@ def clean_environment_readings(readings):
 
     Args:
         readings (pandas.DataFrame): Long-form readings with ``sensorid``,
-            ``timestamp``, ``variable`` and ``value`` columns. Timestamps may
-            be epoch seconds or values accepted by ``pandas.to_datetime``.
+            ``timestamp``, ``variable`` and ``value`` columns. ``timestamp``
+            values must be numeric Unix epoch seconds; nonnumeric timestamps
+            are counted as invalid and excluded.
 
     Returns:
         tuple: A wide CO2/temperature/humidity DataFrame and a dictionary of
@@ -68,7 +69,6 @@ def clean_environment_readings(readings):
 
     Raises:
         KeyError: If a required long-form column is absent.
-        TypeError: If values cannot be converted to numeric data.
     """
     required = {'sensorid', 'timestamp', 'variable', 'value'}
     missing = sorted(required.difference(readings.columns))

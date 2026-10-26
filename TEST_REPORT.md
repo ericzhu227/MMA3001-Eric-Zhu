@@ -14,7 +14,7 @@ python profile_workflow.py
 python build_docs.py
 ```
 
-Result: ten unit tests passed, metric docstring example passed. Checks cover hand-computed MAE/RMSE/error sign, invalid metric inputs, irregular elapsed-time rates, known environmental JSON extraction, invalid JSON payload structure, duplicate/conflict cleaning, backward lag and target matching, finite prepared split validation, successful model-comparison exports, target-boundary purging, and the independence of model selection from withheld test targets.
+Result: eleven unit tests passed, metric docstring example passed. Checks cover hand-computed MAE/RMSE/error sign, invalid metric inputs, irregular elapsed-time rates, known environmental JSON extraction, invalid JSON payload structure, duplicate/conflict cleaning, numeric epoch-second timestamp validation, backward lag and target matching, finite prepared split validation, successful model-comparison exports, target-boundary purging, and the independence of model selection from withheld test targets.
 
 Integration run: loaded the existing 4,712 training, 1,569 validation and 1,571 final-test rows; fitted 65 candidates (persistence, four linear configurations and 60 trees). Each candidate was evaluated on train/validation. Selected linear_history_environment_rate20 using validation MAE alone. Saved exclusion diagnostics, paired weekly test errors, CSV diagnostics and two PNG plots when matplotlib was available, then regenerated pdoc HTML.
 
@@ -24,8 +24,9 @@ Additional evidence: the final test improvement is positive in each reported tar
 
 Limits: tests verify selected computational contracts, not sensor calibration, room mapping or generalisation to other sensors/seasons. One chronological validation period informs model selection, so validation ranking is optimistic. Test results should not guide further tuning. Noise experiments are synthetic input perturbations and not calibrated sensor uncertainty. Timing is single-run wall-clock timing. Optional accumulated excess-CO2 integration is not implemented.
 
-Profiler evidence: `profile_workflow.py` completed the prepared-data comparison
-in approximately 0.89 seconds and wrote the top cumulative functions to
+Profiler evidence: `profile_workflow.py` completed the packaged prepared-data
+comparison in 1.00 seconds, matching the cumulative time recorded in the
+included profile, and wrote the top cumulative functions to
 `model_results/profiled_comparison/compare_models_profile.txt`. The main
 workflow cost was the 65-candidate `compare_models()` call; repeated decision
 tree fitting and prediction/validation checks were the largest visible

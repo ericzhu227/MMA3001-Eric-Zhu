@@ -67,6 +67,17 @@ class ForecastTests(unittest.TestCase):
         self.assertEqual(summary['conflicting readings excluded'], 2)
         self.assertEqual(cleaned['co2_ppm'].tolist(), [510.])
 
+    def test_clean_environment_readings_requires_epoch_seconds(self):
+        """Treat ISO strings and Timestamp objects as invalid timestamp input."""
+        readings = pd.DataFrame([
+            ('s1', '2024-03-01T00:00:00Z', 'Carbon dioxide', 500.),
+            ('s1', pd.Timestamp('2024-03-01T00:10:00Z'), 'Temperature', 22.),
+            ('s1', 0, 'Carbon dioxide', 510.),
+        ], columns=['sensorid', 'timestamp', 'variable', 'value'])
+        cleaned, summary = clean_environment_readings(readings)
+        self.assertEqual(summary['invalid readings'], 2)
+        self.assertEqual(cleaned['co2_ppm'].tolist(), [510.])
+
     def test_forecast_features_use_backward_lags_and_tolerant_targets(self):
         """Match historical values backward and leave unsupported targets missing."""
         times = pd.to_datetime([
