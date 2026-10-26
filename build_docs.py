@@ -143,22 +143,26 @@ def build_project_report(root, output_dir):
          "project asks how accurately the selected MSI sensor can predict "
          "measured CO2 approximately 20 minutes ahead.</p>"),
         ("data", "2. Dataset and inputs/outputs",
-         "<p>The environmental CSV contains JSON-packed readings, while "
+         "<p>The environmental CSV contains 179,447 database rows with "
+         "JSON-packed readings, while "
          "the occupancy CSV and location workbook provide supporting data. "
          "The model uses CO2 in ppm, temperature, humidity, historical CO2 "
          "and a rate feature. Occupancy is excluded because the available "
          "room mapping is unresolved. The selected sensor-period spans "
-         "2024-02-29 to 2024-06-13 UTC, with observed CO2 approximately "
-         "403-646 ppm. This range does not establish performance at much "
-         "higher concentrations.</p>"),
+         "2024-02-29 06:04:56 to 2024-06-13 17:45:44 UTC, spanning "
+         "approximately 105.49 days. Observed CO2 was approximately 403-646 "
+         "ppm, with a mean near 473.99 ppm. This range does not establish "
+         "performance at much higher concentrations.</p>"),
         ("cleaning", "3. Data cleaning and exploration",
          "<p>Measurement times are extracted from the environmental JSON. "
          "Exact duplicates are removed, conflicting values are excluded, "
          "and non-finite or non-positive CO2 values are removed. A gap over "
          "30 minutes starts a new contiguous period; selection uses time "
-         "coverage rather than forecast performance. Of 13,800 candidate "
+         "coverage rather than forecast performance. Of 13,800 selected-sensor "
          "issue times, 7,855 become usable forecasts before boundary purging. "
-         "The exclusion categories below overlap, so they must not be added "
+         "Approximately 43.1% of candidates are excluded, and 409,812 "
+         "duplicate individual readings (not CSV rows) were removed. The "
+         "exclusion categories below overlap, so they must not be added "
          "as mutually exclusive totals.</p>"
          + _make_table(
              ["Exclusion condition", "Rows", "Share of candidate rows (%)"],
@@ -170,15 +174,17 @@ def build_project_report(root, output_dir):
          "values use backward matching so later readings cannot leak into "
          "earlier inputs. Rates use actual elapsed time.</p>"),
         ("validation", "5. Validation design",
-         "<p>Issue times are split chronologically into approximately 60% "
-         "training, 20% validation and 20% final test. Boundary purging "
+         "<p>Issue times are split chronologically into 4,712 training, "
+         "1,569 validation and 1,571 final-test rows. Boundary purging "
          "removes earlier examples whose target reaches into the next "
          "period, protecting the final test from tuning.</p>"),
         ("models", "6. Model development",
          "<p>Persistence provides a transparent baseline. Ordinary least "
          "squares estimates a weighted combination of features. Decision "
          "trees partition the feature space and predict the average target "
-         "in each leaf. Validation MAE selects the configuration.</p>"),
+         "in each leaf. The comparison contains 65 candidates: persistence, "
+         "four linear configurations and 60 tree configurations. Validation "
+         "MAE selects the configuration.</p>"),
         ("results", "7. Results",
          "<p>Lower MAE and RMSE indicate smaller errors; signed error is "
          "reported separately as a bias measure.</p>"
@@ -199,7 +205,9 @@ def build_project_report(root, output_dir):
          "<p>The selected model is only modestly better than persistence, "
          "indicating that recent CO2 history carries most of the signal. "
          "Synthetic input noise increases validation error, while timing "
-         "results should be treated as single-run engineering evidence.</p>"
+         "results should be treated as single-run engineering evidence. "
+         "The selected linear fit took approximately 0.00144 seconds and "
+         "the final test contains 1,571 rows; these are not formal benchmarks.</p>"
          + _make_table(
              ["Input noise standard deviation (ppm)", "MAE (ppm)", "RMSE (ppm)"],
              noise_rows,
@@ -209,7 +217,9 @@ def build_project_report(root, output_dir):
          "<p>The model is suitable as supplementary monitoring evidence, "
          "not as the sole basis for ventilation action. The study covers "
          "one sensor and one period and does not establish calibration, "
-         "causal ventilation effects or generalisation to other rooms.</p>"),
+         "causal ventilation effects, uncertainty intervals, useful ventilation "
+         "decisions or generalisation to other rooms and seasons. It also does "
+         "not establish automatic control or health-threshold performance.</p>"),
         ("conclusion", "10. Conclusion",
          "<p>For this sensor and measured 20-minute horizon, the selected "
          "linear model improves on persistence, but the improvement is "
@@ -217,10 +227,13 @@ def build_project_report(root, output_dir):
          "sensors and seasons, collect higher-frequency data and validate "
          "prediction uncertainty.</p>"),
         ("ai", "11. AI-use reflection and references",
-         '<p>Record AI assistance with loading, auditing, modelling, '
-         'debugging and documentation, together with your contribution '
-         'estimate and verification steps. Complete references for the '
-         'dataset, project brief, teaching notes and external methods. See '
+         '<p>OpenAI ChatGPT and Codex assisted with ideas, spelling, code '
+         'generation, debugging, report structure and documentation. The '
+         'author estimates approximately 70% AI contribution to coding and '
+         'drafting assistance, while personally checking the timestamp series, '
+         'tracing the workflow, verifying outputs and making final decisions. '
+         'Complete references for the dataset, project brief, teaching notes '
+         'and external methods. See '
          '<a href="../README.md">README</a>, '
          '<a href="../TEST_REPORT.md">test report</a> and '
          '<a href="../PROJECT_CRITERIA.md">criteria checklist</a>.</p>'),

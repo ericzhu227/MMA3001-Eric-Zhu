@@ -79,8 +79,11 @@ HTML documentation. AI also helped improve wording and organisation. The
 author reviewed the generated changes, ran the tests/doctest and workflow,
 checked the numerical outputs against the prepared datasets and accepts
 responsibility for the final implementation, interpretation and conclusions.
-The author should add their own contribution estimate and reflection before
-submission.
+The author estimates that AI contributed approximately 70% of the coding and
+report drafting assistance, while the author remained responsible for checking
+the timestamp series, tracing the workflow, verifying the results, rejecting
+unsupported suggestions and making the final engineering decisions. Add any
+final personal reflection required by the submission instructions.
 
 ## Submission notes
 
