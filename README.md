@@ -91,3 +91,5 @@ Do not add PyTorch, GPU support, occupancy inputs or a neural network unless a
 future project requirement specifically calls for them. Keep the GPL v3
 `LICENSE`, meaningful Git history, the final report, presentation/demo
 materials and an authorised repository link in the final submission.
+
+Repository: [MMA3001-Eric-Zhu on GitHub](https://github.com/ericzhu227/MMA3001-Eric-Zhu.git)
