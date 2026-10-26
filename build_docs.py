@@ -208,7 +208,7 @@ def build_project_report(root, output_dir):
          "indicating that recent CO2 history carries most of the signal. "
          "Synthetic input noise increases validation error, while timing "
          "results should be treated as single-run engineering evidence. "
-         "The selected linear fit took approximately 0.00144 seconds and "
+         "The selected linear fit took approximately 0.00147 seconds and "
          "the final test contains 1,571 rows; these are not formal benchmarks.</p>"
          + _make_table(
              ["Input noise standard deviation (ppm)", "MAE (ppm)", "RMSE (ppm)"],
@@ -234,13 +234,15 @@ def build_project_report(root, output_dir):
          'author estimates approximately 70% AI contribution to coding and '
          'drafting assistance, while personally checking the timestamp series, '
          'tracing the workflow, verifying outputs and making final decisions. '
-         'Complete references for the dataset, project brief, teaching notes '
-         'and external methods. See '
+         'References for the dataset and external methods are provided in '
+         'the References section of the final submitted PDF. See '
          '<a href="../README.md">README</a>, '
          '<a href="../TEST_REPORT.md">test report</a> and '
          '<a href="../PROJECT_CRITERIA.md">criteria checklist</a>.</p>'),
-        ("submission", "12. Repository and submission materials",
-         "<p>Before submission, rerun the notebook, run the tests and "
+        ("submission", "12. Reproduction and submission checklist",
+         "<p>This HTML page is a supplementary project summary; the PDF is "
+         "the submitted report. For reproduction and submission, rerun the "
+         "notebook, run the tests and "
          "doctest, regenerate the HTML documentation, check dependencies "
          "and README instructions, and confirm that the report, repository "
          "link, archive and presentation materials are complete.</p>"),

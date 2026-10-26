@@ -24,11 +24,11 @@ Additional evidence: the final test improvement is positive in each reported tar
 
 Limits: tests verify selected computational contracts, not sensor calibration, room mapping or generalisation to other sensors/seasons. One chronological validation period informs model selection, so validation ranking is optimistic. Test results should not guide further tuning. Noise experiments are synthetic input perturbations and not calibrated sensor uncertainty. Timing is single-run wall-clock timing. Optional accumulated excess-CO2 integration is not implemented.
 
-Profiler evidence: `profile_workflow.py` completed the packaged prepared-data
-comparison in 1.00 seconds, matching the cumulative time recorded in the
+Profiler evidence: 'profile_workflow.py' completed the packaged prepared-data
+comparison in 0.83 seconds, matching the cumulative time recorded in the
 included profile, and wrote the top cumulative functions to
-`model_results/profiled_comparison/compare_models_profile.txt`. The main
-workflow cost was the 65-candidate `compare_models()` call; repeated decision
+'model_results/profiled_comparison/compare_models_profile.txt'. The main
+workflow cost was the 65-candidate 'compare_models()' call; repeated decision
 tree fitting and prediction/validation checks were the largest visible
 sub-operations. This identifies computational cost but is a single-run profile,
 not a hardware-independent benchmark.
