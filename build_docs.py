@@ -64,6 +64,8 @@ def export_documentation_source(notebook_path, output_path):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 functions.append(ast.get_source_segment(source, node))
 
+    # Add a simple heading before pdoc lists the extracted notebook functions.
+    narrative.append("## Functions in notebook")
     module = repr("\n\n".join(narrative)) + "\n\n"
     module += "# Generated reference; edit the notebook instead.\n"
     module += "from time import perf_counter\nimport numpy as np\nimport pandas as pd\n\n"
