@@ -5,3 +5,7 @@ __pycache__/
 *.egg-info/
 
 # Keep the reproducible profiler output as supporting evidence.
+
+# Large course-supplied raw datasets; obtain them separately as described in README.md.
+/MMA3001 Dataset - MSI Occupancy and Environmental/5EnvSensor_MayToDec2024_180kRows.csv
+/MMA3001 Dataset - MSI Occupancy and Environmental/5occupancySensor_MayToDec2024_9MRows.csv
